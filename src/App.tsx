@@ -227,31 +227,57 @@ export default function App() {
     const img = imageRef.current;
     const rect = img.getBoundingClientRect();
     
-    // Calcula coordenada relativa em %
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    // Coordenadas do clique relativas ao elemento do container
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
     
+    const containerWidth = rect.width;
+    const containerHeight = rect.height;
+    
+    const naturalWidth = img.naturalWidth;
+    const naturalHeight = img.naturalHeight;
+    
+    // Razões de escala para mapear object-cover
+    const scaleX = containerWidth / naturalWidth;
+    const scaleY = containerHeight / naturalHeight;
+    const scale = Math.max(scaleX, scaleY);
+    
+    // Dimensões reais da imagem renderizada sob object-cover
+    const renderedWidth = naturalWidth * scale;
+    const renderedHeight = naturalHeight * scale;
+    
+    // Deslocamentos causados pelo alinhamento centralizado do object-cover
+    const offsetX = (renderedWidth - containerWidth) / 2;
+    const offsetY = (renderedHeight - containerHeight) / 2;
+    
+    // Transforma a coordenada clicada para o espaço da imagem renderizada
+    const imageX = clickX + offsetX;
+    const imageY = clickY + offsetY;
+    
+    // Converte para pixels reais da imagem original (clamping para limites válidos)
+    const pixelX = Math.max(0, Math.min(naturalWidth - 1, Math.floor(imageX / scale)));
+    const pixelY = Math.max(0, Math.min(naturalHeight - 1, Math.floor(imageY / scale)));
+    
+    // Salva a coordenada percentual relativa para o marcador visual do clique
+    const x = (clickX / containerWidth) * 100;
+    const y = (clickY / containerHeight) * 100;
     setMarkerCoords({ x, y });
 
-    // Desenha em um canvas temporário para extrair a cor exata do pixel
+    // Cria um canvas minúsculo de 1x1 para extrair o pixel desejado instantaneamente
     const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      
-      // Converte coordenadas percentuais para pixels reais da imagem
-      const pixelX = Math.floor((x / 100) * canvas.width);
-      const pixelY = Math.floor((y / 100) * canvas.height);
-      
       try {
-        const pixelData = ctx.getImageData(pixelX, pixelY, 1, 1).data;
+        // Desenha apenas o pixel selecionado na posição (0,0) do canvas 1x1
+        ctx.drawImage(img, pixelX, pixelY, 1, 1, 0, 0, 1, 1);
+        const pixelData = ctx.getImageData(0, 0, 1, 1).data;
         const r = pixelData[0];
         const g = pixelData[1];
         const b = pixelData[2];
         
-        // Encontra a cor de tinta mais próxima em nosso banco usando distância euclidiana
+        // Encontra a cor de tinta mais próxima usando deltaE2000 no espaço LAB
         const matchedColor = findClosestPaintColor(r, g, b);
         setSelectedColor(matchedColor);
         showToast(`Cor identificada: ${matchedColor.name} (${matchedColor.code})`, "success");
