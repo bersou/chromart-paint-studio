@@ -226,8 +226,41 @@ export default function App() {
   };
 
   // ============================================================================
-  // PROCESSAMENTO DE COR (CÁLCULO EUCLIDIANO E CORRESPONDÊNCIA DE TINTA)
+  // PROCESSAMENTO DE COR E EXTRAÇÃO AUTOMÁTICA
   // ============================================================================
+
+  const handleImageLoad = () => {
+    // Apenas faz extração automática para imagens recém upadas ou capturadas da câmera
+    if (activePreset !== '' || !imageRef.current) return;
+    
+    const img = imageRef.current;
+    
+    // Cria um canvas minúsculo de 1x1 para extrair o pixel central
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      try {
+        const centerX = Math.floor(img.naturalWidth / 2);
+        const centerY = Math.floor(img.naturalHeight / 2);
+        
+        ctx.drawImage(img, centerX, centerY, 1, 1, 0, 0, 1, 1);
+        const pixelData = ctx.getImageData(0, 0, 1, 1).data;
+        const r = pixelData[0];
+        const g = pixelData[1];
+        const b = pixelData[2];
+        
+        const matchedColor = findClosestPaintColor(r, g, b);
+        setSelectedColor(matchedColor);
+        setMarkerCoords({ x: 50, y: 50 }); // Centraliza o marcador visual
+        
+        showToast(`Cor extraída automaticamente do centro: ${matchedColor.name}`, "success");
+      } catch (err) {
+        console.error("Falha ao capturar dados do pixel central da imagem: ", err);
+      }
+    }
+  };
 
   const handleImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (isCameraActive || !imageRef.current) return;
@@ -578,6 +611,7 @@ Recomendação de Compra: ${calculationResults.suggestion}
                     src={currentImage}
                     alt="Ambiente de Teste"
                     crossOrigin="anonymous"
+                    onLoad={handleImageLoad}
                     className="w-full h-full object-cover select-none transition-transform duration-300 group-hover:scale-[1.01]"
                   />
 
